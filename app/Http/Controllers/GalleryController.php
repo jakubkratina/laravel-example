@@ -39,11 +39,6 @@ final class GalleryController extends ApiController
         return $this->response->item($collection, new ResponseCollectionTransformer);
     }
 
-    public function url(Request $request): Response
-    {
-        dd(Image::make($request->get('url')));
-    }
-
     /**
      * @param Request $request
      * @return Project|null
