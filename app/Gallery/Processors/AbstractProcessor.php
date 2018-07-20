@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace App\Gallery\Processors;
 
@@ -10,16 +10,15 @@ use App\Exceptions\UndefinedFactoryException;
 use App\Gallery\Imageable;
 use App\Gallery\Support\Dimensions;
 use App\Models\User;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Contracts\Filesystem\Factory;
 use Illuminate\Support\Str;
 use Intervention\Image\Facades\Image as Intervention;
 use Intervention\Image\Image;
 
-
 abstract class AbstractProcessor implements FileProcessable
 {
-
     /**
      * @var User
      */
@@ -43,7 +42,6 @@ abstract class AbstractProcessor implements FileProcessable
      */
     protected $storage;
 
-
     /**
      * @param Factory $storage
      */
@@ -51,7 +49,6 @@ abstract class AbstractProcessor implements FileProcessable
     {
         $this->storage = $storage->disk();
     }
-
 
     /**
      * @param User $user
@@ -64,11 +61,11 @@ abstract class AbstractProcessor implements FileProcessable
         return $this;
     }
 
-
     /**
      * @param string $path
      * @param array ...$parameters
      * @return Imageable
+     * @throws BindingResolutionException
      */
     protected function imageableFromFactory(string $path, ...$parameters): Imageable
     {
@@ -77,7 +74,6 @@ abstract class AbstractProcessor implements FileProcessable
         return $factory->build($path, ...$parameters);
     }
 
-
     /**
      * @return string
      */
@@ -85,7 +81,6 @@ abstract class AbstractProcessor implements FileProcessable
     {
         return sprintf('media/%s/%s/', $this->user->id, rtrim($this->directory, '/'));
     }
-
 
     /**
      * @throws UndefinedFactoryException
@@ -101,7 +96,6 @@ abstract class AbstractProcessor implements FileProcessable
 
         return $this->factories[$factory];
     }
-
 
     /**
      * @param string $source

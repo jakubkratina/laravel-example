@@ -33,8 +33,8 @@ final class ImageableManager extends Manager implements Contract
      */
     public function driver($driver = null): FileProcessable
     {
-        // You can create a driver with a driver string,
-        // use the default driver or let a manager resolve
+        // Let's keep a freedom to the developers. You can create a driver
+        // with a driver string, you the default driver or let a manager resolve
         // the driver based on a uploaded file extension.
         $driver = $driver !== null
             ? ($driver instanceOf UploadedFile ? $this->resolve($driver) : $driver)

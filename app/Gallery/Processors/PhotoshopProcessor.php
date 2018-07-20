@@ -2,6 +2,7 @@
 
 namespace App\Gallery\Processors;
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Imagick;
@@ -21,6 +22,8 @@ final class PhotoshopProcessor extends AbstractProcessor
     /**
      * @param UploadedFile $file
      * @return Collection
+     * @throws \ImagickException
+     * @throws BindingResolutionException
      */
     public function store(UploadedFile $file): Collection
     {

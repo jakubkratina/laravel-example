@@ -2,6 +2,7 @@
 
 namespace App\Gallery\Processors;
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Contracts\Filesystem\Factory;
 use Illuminate\Http\UploadedFile;
@@ -34,6 +35,7 @@ final class ImageProcessor extends AbstractProcessor
     /**
      * @param UploadedFile $file
      * @return Collection
+     * @throws BindingResolutionException
      */
     public function store(UploadedFile $file): Collection
     {
