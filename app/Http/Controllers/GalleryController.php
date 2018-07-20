@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\App;
 use App\Contracts\Interactions\Gallery\UploadImageableFile;
-use App\Http\Requests\Api\UploadImageableRequest;
+use App\Gallery\Adapters\UploadedFileAdapter;
+use App\Gallery\Adapters\UrlFileAdapter;
+use App\Gallery\Support\UploadRequest;
+use App\Gallery\Support\UploadResponse;
+use App\Http\Requests\Api\Gallery\UploadImageableFileRequest;
+use App\Http\Requests\Api\Gallery\UploadImageableUrlRequest;
 use App\Models\Project;
 use App\Transformers\Gallery\ImageTransformer;
 use App\Transformers\Gallery\ResponseCollectionTransformer;
 use Dingo\Api\Exception\ResourceException;
 use Dingo\Api\Http\Response;
 use Illuminate\Http\Request;
-use Intervention\Image\Facades\Image;
 
 final class GalleryController extends ApiController
 {
@@ -26,25 +30,47 @@ final class GalleryController extends ApiController
     }
 
     /**
-     * @param UploadImageableRequest $request
+     * @param UploadImageableFileRequest $request
      * @throws ResourceException
      * @return Response
      */
-    public function store(UploadImageableRequest $request): Response
+    public function files(UploadImageableFileRequest $request): Response
     {
-        $collection = App::interact(UploadImageableFile::class, [
-            $request->all(), $this->user, $this->project($request)
-        ]);
+        return $this->response->item($this->upload(
+            $request, $request->file('files'), UploadedFileAdapter::class
+        ), new ResponseCollectionTransformer);
+    }
 
-        return $this->response->item($collection, new ResponseCollectionTransformer);
+    /**
+     * @param UploadImageableUrlRequest $request
+     * @return Response
+     */
+    public function url(UploadImageableUrlRequest $request): Response
+    {
+        return $this->response->item($this->upload(
+            $request, [$request->get('url')], UrlFileAdapter::class
+        ), new ResponseCollectionTransformer);
     }
 
     /**
      * @param Request $request
      * @return Project|null
      */
-    protected function project(Request $request): ?Project
+    private function project(Request $request): ?Project
     {
         return Project::find($request->get('project_id'));
+    }
+
+    /**
+     * @param Request $request
+     * @param array $files
+     * @param string $adapter
+     * @return UploadResponse
+     */
+    private function upload(Request $request, array $files, string $adapter): UploadResponse
+    {
+        return App::interact(UploadImageableFile::class, [new UploadRequest(
+            $files, $this->user, $this->project($request), $adapter
+        )]);
     }
 }

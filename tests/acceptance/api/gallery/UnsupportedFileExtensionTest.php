@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Tests\Acceptance\Api\Gallery;
 
@@ -8,52 +8,44 @@ use Symfony\Component\HttpFoundation\Request;
 use Tests\Acceptance\Api\CanSendFileRequest;
 use Tests\AcceptanceTestCase;
 
-
-
-class UnsupportedFileExtensionTest extends AcceptanceTestCase
+final class UnsupportedFileExtensionTest extends AcceptanceTestCase
 {
+    use CanSendFileRequest;
 
-	use CanSendFileRequest;
+    /**
+     * @var string
+     */
+    protected $fontPath = 'tests/fixtures/fonts/test-font.ttf';
 
-	/**
-	 * @var string
-	 */
-	protected $fontPath = 'tests/fixtures/fonts/test-font.ttf';
+    /** @test */
+    public function it_sends_the_wrong_file_format_and_expects_an_error_message(): void
+    {
+        $response = $this->file(
+            Request::METHOD_POST,
+            '/gallery',
+            [],
+            ['files' => [$this->fileWithNotSupportedExtension()]],
+            $this->authorizationHeaders()
+        );
 
+        $response->assertJson([
+            'errors' => [
+                'files' => [
+                    (new UnsupportedFileExtensionException('ttf'))->getMessage()
+                ]
+            ]
+        ]);
+    }
 
+    /**
+     * @return UploadedFile
+     */
+    protected function fileWithNotSupportedExtension(): UploadedFile
+    {
+        $path = base_path($this->fontPath);
+        $filename = str_slug(str_random());
+        $mime = finfo_file(finfo_open(FILEINFO_MIME_TYPE), $path);
 
-	/** @test */
-	public function it_sends_the_wrong_file_format_and_expects_an_error_message()
-	{
-		$response = $this->file(
-			Request::METHOD_POST,
-			'/gallery',
-			[],
-			['files' => [$this->fileWithNotSupportedExtension()]],
-			$this->authorizationHeaders()
-		);
-
-		$response->assertJson([
-			'errors' => [
-				'files' => [
-					(new UnsupportedFileExtensionException('ttf'))->getMessage()
-				]
-			]
-		]);
-	}
-
-
-
-	/**
-	 * @return UploadedFile
-	 */
-	protected function fileWithNotSupportedExtension()
-	{
-		$path = base_path($this->fontPath);
-		$filename = str_slug(str_random());
-		$mime = finfo_file(finfo_open(FILEINFO_MIME_TYPE), $path);
-
-		return new UploadedFile($path, $filename, $mime, null, null, true);
-	}
-
+        return new UploadedFile($path, $filename, $mime, null, null, true);
+    }
 }

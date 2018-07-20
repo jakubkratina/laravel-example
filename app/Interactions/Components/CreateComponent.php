@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 namespace App\Interactions\Components;
 
@@ -29,16 +29,15 @@ final class CreateComponent implements Contract
     protected $factory;
 
     /**
-     * @param ComponentRepository $components
-     * @param Project $projects
+     * @param ComponentRepository  $components
+     * @param Project              $projects
      * @param ComponentableFactory $factory
      */
     public function __construct(
         ComponentRepository $components,
         Project $projects,
         ComponentableFactory $factory
-    )
-    {
+    ) {
         $this->components = $components;
         $this->projects = $projects;
         $this->factory = $factory;
@@ -75,7 +74,7 @@ final class CreateComponent implements Contract
     }
 
     /**
-     * @param array $values
+     * @param array   $values
      * @param Closure $callback
      * @return Component
      */

@@ -13,7 +13,7 @@ trait UploadImageableFileExtensionValidator
      * @param Validator $validator
      * @param array $files
      */
-    protected function validateImageableFileExtension(Validator $validator, array $files)
+    protected function validateImageableFileExtension(Validator $validator, array $files): void
     {
         /** @var UploadedFile $file */
         foreach ($files as $file) {

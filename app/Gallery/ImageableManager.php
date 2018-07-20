@@ -3,116 +3,115 @@
 namespace App\Gallery;
 
 use App\App;
+use App\Contracts\Gallery\File;
 use App\Contracts\Gallery\FileProcessable;
 use App\Contracts\Gallery\Manager as Contract;
 use App\Exceptions\UnsupportedFileExtensionException;
 use App\Gallery\Processors\ImageProcessor;
 use App\Gallery\Processors\PhotoshopProcessor;
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Manager;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
-final class ImageableManager extends Manager implements Contract
+final class ImageableManager implements Contract
 {
     /**
-     * @param UploadedFile $file
+     * @var Repository
+     */
+    private $config;
+
+    /**
+     * @var string[]
+     */
+    private $processors = [];
+
+    /**
+     * @param Repository $config
+     */
+    public function __construct(Repository $config)
+    {
+        $this->config = $config;
+    }
+
+    /**
+     * @param File $file
      * @param User $user
      * @return Collection|Imageable[]
      */
-    public function store(UploadedFile $file, User $user): Collection
+    public function store(File $file, User $user): Collection
     {
-        return $this->driver($file)->forUser($user)->store($file);
+        return $this->processor($file)->forUser($user)->store($file);
     }
 
     /**
-     * @param  string|UploadedFile|null $driver
+     * @param  File $file
      * @return FileProcessable
      */
-    public function driver($driver = null): FileProcessable
+    public function processor(File $file): FileProcessable
     {
-        // Let's keep a freedom to the developers. You can create a driver
-        // with a driver string, you the default driver or let a manager resolve
-        // the driver based on a uploaded file extension.
-        $driver = $driver !== null
-            ? ($driver instanceOf UploadedFile ? $this->resolve($driver) : $driver)
-            : $this->getDefaultDriver();
+        $processor = $this->resolveProcessorName($file);
 
-        // If the given driver has not been created before, we will create the instances
-        // here and cache it so we can return it next time very quickly. If there is
-        // already a driver created by this name, we'll just return that instance.
-        if (isset($this->drivers[$driver]) === false) {
-            $this->drivers[$driver] = $this->createDriver($driver);
+        if (isset($this->processors[$processor]) === false) {
+            $this->processors[$processor] = $this->createProcessor($processor);
         }
 
-        return $this->drivers[$driver];
+        return $this->processors[$processor];
     }
 
     /**
-     * @param string $driver
+     * @param string $processor
      * @throws InvalidArgumentException
      * @return FileProcessable
      */
-    public function createDriver($driver): FileProcessable
+    public function createProcessor(string $processor): FileProcessable
     {
-        $method = 'create' . Str::studly($driver) . 'Driver';
+        $method = 'create' . Str::studly($processor) . 'Processor';
 
         if (method_exists($this, $method) === true) {
-            return $this->$method($this->config($driver));
+            return $this->$method($this->config($processor));
         }
 
-        throw new InvalidArgumentException("Driver [$driver] not supported.");
+        throw new InvalidArgumentException("Processor [$processor] not supported.");
     }
 
     /**
      * @return FileProcessable
      */
-    public function createImageDriver(): FileProcessable
+    public function createImageProcessor(): FileProcessable
     {
-        return $this->app->make(ImageProcessor::class);
+        return app(ImageProcessor::class);
     }
 
     /**
      * @param array $config
      * @return FileProcessable
      */
-    public function createPhotoshopDriver(array $config): FileProcessable
+    public function createPhotoshopProcessor(array $config): FileProcessable
     {
-        /** @var PhotoshopProcessor $processor */
-        $processor = $this->app->make(PhotoshopProcessor::class);
-
-        $processor->skipComposite($config['skipCompositeImage']);
-
-        return $processor;
+        return tap(app(PhotoshopProcessor::class), function (PhotoshopProcessor $processor) use ($config) {
+            $processor->skipComposite($config['skipCompositeImage']);
+        });
     }
 
     /**
-     * @return string
-     */
-    public function getDefaultDriver(): string
-    {
-        throw new InvalidArgumentException('No Imageable driver was specified.');
-    }
-
-    /**
-     * @param string $driver
+     * @param string $processor
      * @return array|null
      */
-    protected function config(string $driver): ?array
+    protected function config(string $processor): ?array
     {
-        return $this->app['config']['image.uploads.' . $driver];
+        return $this->config->get('image.uploads.' . $processor);
     }
 
     /**
-     * @param UploadedFile $file
+     * @param File $file
      * @return string
      * @throws UnsupportedFileExtensionException
      */
-    protected function resolve(UploadedFile $file): string
+    protected function resolveProcessorName(File $file): string
     {
-        $extension = $file->guessExtension();
+        $extension = $file->extension(); // TODO UploadedFile => guessExtension
 
         if (in_array($extension, App::imageProcessorExtensions())) {
             return 'image';

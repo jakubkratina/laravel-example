@@ -6,18 +6,17 @@ use App\Gallery\Imageable;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
-interface Manager
+interface FileProcessable
 {
     /**
      * @param File $file
-     * @param User $user
      * @return Collection|Imageable[]
      */
-    public function store(File $file, User $user): Collection;
+    public function store(File $file): Collection;
 
     /**
-     * @param  File $file
+     * @param User $user
      * @return FileProcessable
      */
-    public function processor(File $file): FileProcessable;
+    public function forUser(User $user): FileProcessable;
 }

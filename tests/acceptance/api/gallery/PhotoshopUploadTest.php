@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Tests\Acceptance\Api\Gallery;
 
@@ -12,214 +12,203 @@ use Tests\Acceptance\Api\Cleaning;
 use Tests\AcceptanceTestCase;
 use Tests\Support\UploadedFile;
 
-
-
 final class PhotoshopUploadTest extends AcceptanceTestCase
 {
+    use ChecksForFileExistence;
+    use CanCreateProject;
+    use CanSendFileRequest;
+    use Cleaning;
 
-	use ChecksForFileExistence;
-	use CanCreateProject;
-	use CanSendFileRequest;
-	use Cleaning;
+    /**
+     * @var string
+     */
+    protected $directory = 'app/public/';
 
-	/**
-	 * @var string
-	 */
-	protected $path = 'tests/fixtures/images/psds/1.psd';
+    /**
+     * @var string
+     */
+    private $path = 'tests/fixtures/images/psds/1.psd';
 
-	/**
-	 * @var string
-	 */
-	protected $directory = 'app/public/';
+    /**
+     * @var string[]
+     */
+    private $componentsStructure = [
+        'id',
+        'visibility',
+        'position_x',
+        'position_y',
+        'height',
+        'width',
+        'order',
+        'componentable_type',
+        'componentable' => [
+            'path',
+        ],
+    ];
 
-	/**
-	 * @var string[]
-	 */
-	protected $componentsStructure = [
-		'id',
-		'visibility',
-		'position_x',
-		'position_y',
-		'height',
-		'width',
-		'order',
-		'componentable_type',
-		'componentable' => [
-			'path',
-		],
-	];
+    public function setUp(): void
+    {
+        parent::setUp();
 
+        factory(User::class)->create(['id' => 1]); // TODO temporary until auth implementation
+    }
 
+    /** @test */
+    public function it_uploads_a_photoshop_file(): void
+    {
+        $response = $this->file(
+            Request::METHOD_POST,
+            '/gallery',
+            [],
+            ['files' => [UploadedFile::makeFrom($this->path)]],
+            $this->authorizationHeaders()
+        );
 
-	public function setUp()
-	{
-		parent::setUp();
+        $response->assertJsonStructure([
+            'data' => [
+                'images' => [
+                    'data' => [
+                        '*' => [
+                            'id',
+                            'path',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
 
-		factory(User::class)->create(['id' => 1]); // TODO temporary until auth implementation
-	}
+        $json = $response->decodeResponseJson();
 
+        $this->assertDatabaseHas('user_gallery', [
+            'id'   => $json['data']['images']['data'][0]['id'],
+            'path' => $this->stripDomain($json['data']['images']['data'][0]['path'])
+        ]);
 
+        $this->checksForFileExistence(
+            $json['data']['images']['data'][0]['path']
+        );
 
-	/** @test */
-	public function it_uploads_a_photoshop_file()
-	{
-		$response = $this->file(
-			Request::METHOD_POST,
-			'/gallery',
-			[],
-			['files' => [UploadedFile::makeFrom($this->path)]],
-			$this->authorizationHeaders()
-		);
+        $this->checksForFileExistence(
+            $json['data']['images']['data'][1]['path']
+        );
 
-		$response->assertJsonStructure([
-			'data' => [
-				'images' => [
-					'data' => [
-						'*' => [
-							'id',
-							'path',
-						],
-					],
-				],
-			],
-		]);
+        $this->deleteUserGalleryImageOrDirectory(
+            Image::find($response->decodeResponseJson()['data']['images']['data'][0]['id'])
+        );
+    }
 
-		$json = $response->decodeResponseJson();
+    /** @test */
+    public function it_uploads_a_photoshop_file_to_the_project(): void
+    {
+        $project = $this->createProject();
 
-		$this->assertDatabaseHas('user_gallery', [
-			'id'   => $json['data']['images']['data'][0]['id'],
-			'path' => $this->stripDomain($json['data']['images']['data'][0]['path'])
-		]);
+        $response = $this->file(
+            Request::METHOD_POST,
+            '/gallery',
+            ['project_id' => $project->id],
+            ['files' => [UploadedFile::makeFrom($this->path)]],
+            $this->authorizationHeaders()
+        );
 
-		$this->checksForFileExistence(
-			$json['data']['images']['data'][0]['path']
-		);
+        $response->assertJsonStructure([
+            'data' => [
+                'images'     => [
+                    'data' => [
+                        '*' => [
+                            'id',
+                            'path',
+                        ],
+                    ],
+                ],
+                'components' => [
+                    'data' => [
+                        '*' => $this->componentsStructure,
+                    ],
+                ],
+            ],
+        ]);
 
-		$this->checksForFileExistence(
-			$json['data']['images']['data'][1]['path']
-		);
+        $json = $response->decodeResponseJson();
 
-		$this->deleteUserGalleryImageOrDirectory(
-			Image::find($response->decodeResponseJson()['data']['images']['data'][0]['id'])
-		);
-	}
+        for ($i = 0; $i < 2; $i++) {
+            $image = $json['data']['images']['data'][$i];
+            $componentPath = $json['data']['components']['data'][$i]['componentable']['path'];
 
+            $this->checksForFileExistence($image['path']);
+            $this->checksForFileExistence($componentPath);
 
+            $this->assertDatabaseHas('user_gallery', [
+                'id'   => $image['id'],
+                'path' => $this->stripDomain($image['path'])
+            ]);
 
-	/** @test */
-	public function it_uploads_a_photoshop_file_to_the_project()
-	{
-		$project = $this->createProject();
+            $this->assertDatabaseHas('componentable_images', [
+                'path' => $this->stripDomain($componentPath)
+            ]);
+        }
 
-		$response = $this->file(
-			Request::METHOD_POST,
-			'/gallery',
-			['project_id' => $project->id],
-			['files' => [UploadedFile::makeFrom($this->path)]],
-			$this->authorizationHeaders()
-		);
+        $this->assertCount(2, $json['data']['images']['data']);
+        $this->assertCount(2, $json['data']['components']['data']);
 
-		$response->assertJsonStructure([
-			'data' => [
-				'images'     => [
-					'data' => [
-						'*' => [
-							'id',
-							'path',
-						],
-					],
-				],
-				'components' => [
-					'data' => [
-						'*' => $this->componentsStructure,
-					],
-				],
-			],
-		]);
+        $this->deleteUserGalleryImageOrDirectory(
+            Image::find($response->decodeResponseJson()['data']['images']['data'][0]['id'])
+        );
 
-		$json = $response->decodeResponseJson();
+        $this->deleteComponentImageOrDirectory(
+            Component::find($response->decodeResponseJson()['data']['components']['data'][0]['id'])
+        );
+    }
 
-		for ($i = 0; $i < 2; $i++) {
-			$image = $json['data']['images']['data'][$i];
-			$componentPath = $json['data']['components']['data'][$i]['componentable']['path'];
+    /** @test */
+    public function it_checks_photoshop_upload_by_project_request(): void
+    {
+        $project = $this->createProject();
 
-			$this->checksForFileExistence($image['path']);
-			$this->checksForFileExistence($componentPath);
+        $response = $this->file(
+            Request::METHOD_POST,
+            '/gallery',
+            ['project_id' => $project->id],
+            ['files' => [UploadedFile::makeFrom($this->path)]],
+            $this->authorizationHeaders()
+        );
 
-			$this->assertDatabaseHas('user_gallery', [
-				'id'   => $image['id'],
-				'path' => $this->stripDomain($image['path'])
-			]);
+        for ($i = 0; $i < 2; $i++) {
+            $this->checksForFileExistence(
+                $response->decodeResponseJson()['data']['images']['data'][$i]['path']
+            );
 
-			$this->assertDatabaseHas('componentable_images', [
-				'path' => $this->stripDomain($componentPath)
-			]);
-		}
+            $this->checksForFileExistence(
+                $response->decodeResponseJson()['data']['components']['data'][$i]['componentable']['path']
+            );
+        }
 
-		$this->assertCount(2, $json['data']['images']['data']);
-		$this->assertCount(2, $json['data']['components']['data']);
+        $response = $this->get('project/' . $project->id, $this->authorizationHeaders());
 
-		$this->deleteUserGalleryImageOrDirectory(
-			Image::find($response->decodeResponseJson()['data']['images']['data'][0]['id'])
-		);
+        $response->assertJsonStructure([
+            'data' => [
+                'id',
+                'name',
+                'type'       => [
+                    'data' => [
+                        'name',
+                        'width',
+                        'height',
+                    ],
+                ],
+                'components' => [
+                    'data' => [
+                        '*' => $this->componentsStructure,
+                    ],
+                ],
+            ],
+        ]);
 
-		$this->deleteComponentImageOrDirectory(
-			Component::find($response->decodeResponseJson()['data']['components']['data'][0]['id'])
-		);
-	}
+        $this->deleteComponentImageOrDirectory(
+            $component = Component::find($response->decodeResponseJson()['data']['components']['data'][0]['id'])
+        );
 
-
-
-	/** @test */
-	public function it_checks_photoshop_upload_by_project_request(): void
-	{
-		$project = $this->createProject();
-
-		$response = $this->file(
-			Request::METHOD_POST,
-			'/gallery',
-			['project_id' => $project->id],
-			['files' => [UploadedFile::makeFrom($this->path)]],
-			$this->authorizationHeaders()
-		);
-
-		for ($i = 0; $i < 2; $i++) {
-			$this->checksForFileExistence(
-				$response->decodeResponseJson()['data']['images']['data'][$i]['path']
-			);
-
-			$this->checksForFileExistence(
-				$response->decodeResponseJson()['data']['components']['data'][$i]['componentable']['path']
-			);
-		}
-
-		$response = $this->get('project/' . $project->id, $this->authorizationHeaders());
-
-		$response->assertJsonStructure([
-			'data' => [
-				'id',
-				'name',
-				'type'       => [
-					'data' => [
-						'name',
-						'width',
-						'height',
-					],
-				],
-				'components' => [
-					'data' => [
-						'*' => $this->componentsStructure,
-					],
-				],
-			],
-		]);
-
-		$this->deleteComponentImageOrDirectory(
-			$component = Component::find($response->decodeResponseJson()['data']['components']['data'][0]['id'])
-		);
-
-		$this->deleteUserGalleryImageOrDirectory(
-			$component->project->user->gallery->first()
-		);
-	}
+        $this->deleteUserGalleryImageOrDirectory(
+            $component->project->user->gallery->first()
+        );
+    }
 }

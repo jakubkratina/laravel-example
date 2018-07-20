@@ -104,10 +104,19 @@ abstract class AbstractProcessor implements FileProcessable
      */
     protected function saveImage(string $source, string $path): Image
     {
-        $image = Dimensions::resize(Intervention::make($source))->encode();
+        return tap($this->resize($source), function (Image $image) use ($path) {
+            $this->storage->put($path, (string) $image, App::visible());
+        });
+    }
 
-        $this->storage->put($path, (string) $image, App::visible());
-
-        return $image;
+    /**
+     * @param string $source
+     * @return Image
+     */
+    protected function resize(string $source): Image
+    {
+        return Dimensions::resize(
+            Intervention::make($source)
+        )->encode();
     }
 }

@@ -1,35 +1,14 @@
 <?php declare(strict_types=1);
 
-namespace App\Http\Requests\Api;
+namespace App\Http\Requests\Api\Gallery;
 
-use App\Models\Project;
 use App\Validation\UploadImageableFileExtensionValidator;
-use Dingo\Api\Http\FormRequest;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-class UploadImageableRequest extends FormRequest
+final class UploadImageableFileRequest extends UploadImageableRequest
 {
     use UploadImageableFileExtensionValidator;
-
-    /**
-     * @return bool
-     */
-    public function authorize(): bool
-    {
-        if ($this->user() === null) {
-            return false;
-        }
-
-        if ($this->project_id !== null) {
-            return $this->user()->ownsProject(
-                Project::findOrFail($this->project_id)
-            );
-        }
-
-        return true;
-    }
-
 
     /**
      * @return \Illuminate\Validation\Validator

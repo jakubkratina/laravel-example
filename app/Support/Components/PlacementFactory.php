@@ -1,4 +1,4 @@
-<?php declare(strict_types=1);
+<?php
 
 namespace App\Support\Components;
 
@@ -11,8 +11,10 @@ use App\Models\Project;
 use App\Support\Dimensions;
 use App\Support\Position;
 
+
 final class PlacementFactory
 {
+
     /**
      * @param Project $project
      * @param Componentable $componentable

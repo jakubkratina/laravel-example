@@ -2,10 +2,11 @@
 
 namespace App\Gallery\Processors;
 
+use App\Contracts\Gallery\File;
 use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Imagick;
+use ImagickException;
 
 final class PhotoshopProcessor extends AbstractProcessor
 {
@@ -20,16 +21,16 @@ final class PhotoshopProcessor extends AbstractProcessor
     protected $extension = 'png';
 
     /**
-     * @param UploadedFile $file
+     * @param File $file
      * @return Collection
-     * @throws \ImagickException
+     * @throws ImagickException
      * @throws BindingResolutionException
      */
-    public function store(UploadedFile $file): Collection
+    public function store(File $file): Collection
     {
         $imageables = new Collection();
 
-        $imagick = new Imagick($file->path());
+        $imagick = new Imagick($file->path()); // TODO Illuminate\Http\UploadedFile $file->path()
 
         // Only the Imagick can process a photoshop documents.
         // We want to save each layer as an image to the storage.
@@ -87,7 +88,7 @@ final class PhotoshopProcessor extends AbstractProcessor
     /**
      * @return string
      */
-    protected function createFileName(): string
+    private function createFileName(): string
     {
         return time() . '_' . str_slug(str_random(64)) . '.' . $this->extension;
     }

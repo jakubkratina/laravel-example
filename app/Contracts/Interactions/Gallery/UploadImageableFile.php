@@ -2,17 +2,14 @@
 
 namespace App\Contracts\Interactions\Gallery;
 
-use App\Gallery\Support\ResponseCollection;
-use App\Models\Project;
-use App\Models\User;
+use App\Gallery\Support\UploadRequest;
+use App\Gallery\Support\UploadResponse;
 
 interface UploadImageableFile
 {
     /**
-     * @param array $data
-     * @param User $user
-     * @param Project $project
-     * @return ResponseCollection
+     * @param UploadRequest $request
+     * @return UploadResponse
      */
-    public function handle(array $data, User $user, Project $project = null): ResponseCollection;
+    public function handle(UploadRequest $request): UploadResponse;
 }

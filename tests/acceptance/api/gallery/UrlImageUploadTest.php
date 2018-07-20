@@ -4,24 +4,20 @@ namespace Tests\Acceptance\Api\Gallery;
 
 use App\Models\Component;
 use App\Models\Gallery\Image;
-use Illuminate\Http\Request;
 use Tests\Acceptance\Api\CanCreateProject;
-use Tests\Acceptance\Api\CanSendFileRequest;
 use Tests\Acceptance\Api\Cleaning;
 use Tests\AcceptanceTestCase;
-use Tests\Support\UploadedFile;
 
-final class ImageUploadTest extends AcceptanceTestCase
+final class UrlImageUploadTest extends AcceptanceTestCase
 {
     use ChecksForFileExistence;
     use CanCreateProject;
-    use CanSendFileRequest;
     use Cleaning;
 
     /**
      * @var string
      */
-    protected $path = 'tests/fixtures/images/1.jpg';
+    private $path = 'testing/images/product.png';
 
     /**
      * @var string
@@ -29,15 +25,11 @@ final class ImageUploadTest extends AcceptanceTestCase
     protected $directory = 'app/public/';
 
     /** @test */
-    public function it_uploads_image_file(): void
+    public function it_uploads_an_url_image(): void
     {
-        $response = $this->file(
-            Request::METHOD_POST,
-            '/gallery',
-            [],
-            ['files' => [UploadedFile::makeFrom($this->path)]],
-            $this->authorizationHeaders()
-        );
+        $response = $this->post('/gallery/url', [
+            'url' => $this->url()
+        ], $this->authorizationHeaders());
 
         $image = $response->decodeResponseJson()['data']['images']['data'][0];
 
@@ -69,13 +61,10 @@ final class ImageUploadTest extends AcceptanceTestCase
     {
         $project = $this->createProject();
 
-        $response = $this->file(
-            Request::METHOD_POST,
-            '/gallery',
-            ['project_id' => $project->id],
-            ['files' => [UploadedFile::makeFrom($this->path)]],
-            $this->authorizationHeaders()
-        );
+        $response = $this->post('/gallery/url', [
+            'url'        => $this->url(),
+            'project_id' => $project->id
+        ], $this->authorizationHeaders());
 
         $image = $response->decodeResponseJson()['data']['images']['data'][0];
         $component = $response->decodeResponseJson()['data']['components']['data'][0];
@@ -124,5 +113,13 @@ final class ImageUploadTest extends AcceptanceTestCase
 
         $this->deleteUserGalleryImageOrDirectory(Image::find($image['id']));
         $this->deleteComponentImageOrDirectory(Component::find($component['id']));
+    }
+
+    /**
+     * @return string
+     */
+    private function url(): string
+    {
+        return str_replace('/api', '', url($this->path));
     }
 }

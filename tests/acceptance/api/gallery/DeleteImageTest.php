@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Tests\Acceptance\Api\Gallery;
 
@@ -9,51 +9,46 @@ use Tests\Acceptance\Api\Cleaning;
 use Tests\AcceptanceTestCase;
 use Tests\Support\UploadedFile;
 
-
-
-class DeleteImageTest extends AcceptanceTestCase
+final class DeleteImageTest extends AcceptanceTestCase
 {
+    use ChecksForFileExistence;
+    use CanSendFileRequest;
+    use Cleaning;
 
-	use ChecksForFileExistence;
-	use CanSendFileRequest;
-	use Cleaning;
+    /**
+     * @var string
+     */
+    protected $path = 'tests/fixtures/images/1.jpg';
 
-	/**
-	 * @var string
-	 */
-	protected $path = 'tests/fixtures/images/1.jpg';
+    /**
+     * @var string
+     */
+    protected $directory = 'app/public/';
 
-	/**
-	 * @var string
-	 */
-	protected $directory = 'app/public/';
+    /** @test */
+    public function it_deletes_an_file(): void
+    {
+        $response = $this->file(
+            Request::METHOD_POST,
+            '/gallery',
+            [],
+            ['files' => [UploadedFile::makeFrom($this->path)]],
+            $this->authorizationHeaders()
+        );
 
+        $json = $response->decodeResponseJson();
 
+        $image = $json['data']['images']['data'][0];
 
-	/** @test */
-	public function it_deletes_an_file()
-	{
-		$response = $this->file(
-			Request::METHOD_POST,
-			'/gallery',
-			[],
-			['files' => [UploadedFile::makeFrom($this->path)]],
-			$this->authorizationHeaders()
-		);
+        $user = Image::find($image['id'])->user;
 
-		$json = $response->decodeResponseJson();
+        $this->checksForFileExistence($image['path']);
 
-		$image = $json['data']['images']['data'][0];
+        $this->delete('/gallery/image/' . $image['id'], [], $this->authorizationHeaders())
+            ->assertStatus(204);
 
-		$user = Image::find($image['id'])->user;
+        $this->assertFileNotExists(storage_path($this->directory) . $image['path']);
 
-		$this->checksForFileExistence($image['path']);
-
-		$this->delete('/gallery/image/' . $image['id'], [], $this->authorizationHeaders())
-			->assertStatus(204);
-
-		$this->assertFileNotExists(storage_path($this->directory) . $image['path']);
-
-		$this->deleteDirectoryFormGallery($user);
-	}
+        $this->deleteDirectoryFormGallery($user);
+    }
 }

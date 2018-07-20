@@ -8,10 +8,9 @@ use App\Contracts\Interactions\Gallery\UploadImageableFile as Contract;
 use App\Contracts\Repositories\Gallery\ImageRepository;
 use App\Gallery\Imageable;
 use App\Gallery\ImageComponentArrayBuilder;
-use App\Gallery\Support\ResponseCollection;
+use App\Gallery\Support\UploadRequest;
+use App\Gallery\Support\UploadResponse;
 use App\Models\Gallery\Image;
-use App\Models\Project;
-use App\Models\User;
 use Illuminate\Support\Collection;
 
 final class UploadImageableFile implements Contract
@@ -27,7 +26,7 @@ final class UploadImageableFile implements Contract
     protected $images;
 
     /**
-     * @var ResponseCollection
+     * @var UploadResponse
      */
     protected $response;
 
@@ -43,21 +42,19 @@ final class UploadImageableFile implements Contract
         $this->manager = $manager;
         $this->images = $images;
 
-        $this->response = new ResponseCollection;
+        $this->response = new UploadResponse;
     }
 
     /**
-     * @param array $data
-     * @param User $user
-     * @param Project $project
-     * @return ResponseCollection
+     * @param UploadRequest $request
+     * @return UploadResponse
      * @throws \Exception
      */
-    public function handle(array $data, User $user, Project $project = null): ResponseCollection
+    public function handle(UploadRequest $request): UploadResponse
     {
-        foreach ($data['files'] as $file) {
+        foreach ($request->files() as $file) {
             $this->addToResponse(
-                $this->manager->store($file, $user), $user, $project
+                $this->manager->store($file, $request->user()), $request
             );
         }
 
@@ -79,16 +76,15 @@ final class UploadImageableFile implements Contract
     }
 
     /**
-     * @param Collection|Imageable[] $imageables
-     * @param User $user
-     * @param Project|null $project
+     * @param Collection $imageables
+     * @param UploadRequest $request
      * @throws \Exception
      */
-    protected function addToResponse(Collection $imageables, User $user, Project $project = null): void
+    protected function addToResponse(Collection $imageables, UploadRequest $request): void
     {
         foreach ($imageables as $imageable) {
             $this->response->addImage(
-                $image = $this->images->create($imageable, $user, $project)
+                $image = $this->images->create($imageable, $request->user(), $request->project())
             );
 
             if ($image->project !== null) {

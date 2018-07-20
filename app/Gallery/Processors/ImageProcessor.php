@@ -2,10 +2,10 @@
 
 namespace App\Gallery\Processors;
 
+use App\Contracts\Gallery\File;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Contracts\Filesystem\Factory;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Intervention\Image\ImageManager;
 
@@ -33,27 +33,18 @@ final class ImageProcessor extends AbstractProcessor
     }
 
     /**
-     * @param UploadedFile $file
+     * @param File $file
      * @return Collection
      * @throws BindingResolutionException
      */
-    public function store(UploadedFile $file): Collection
+    public function store(File $file): Collection
     {
-        $path = $this->path() . $this->fileName($file);
+        $fileName = $this->path() . $file->hashName();
 
-        $image = $this->saveImage($file->getRealPath(), $path);
+        $image = $this->saveImage($file->source(), $fileName);
 
         return collect()->push(
-            $this->imageableFromFactory($path, $image->width(), $image->height())
+            $this->imageableFromFactory($fileName, $image->width(), $image->height())
         );
-    }
-
-    /**
-     * @param UploadedFile $file
-     * @return string
-     */
-    protected function fileName(UploadedFile $file): string
-    {
-        return time() . random_int(10, 99) . '_' . $file->hashName();
     }
 }
